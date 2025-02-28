@@ -789,9 +789,17 @@ function createNewTable() {
         let sheetName = "Sheet1";
         sheets[sheetName] = {
             tableData: [
-                ["Column 1", "Column 2", "Column 3"],
-                ["", "", ""],
-                ["", "", ""]
+                ["Column 1", "Column 2", "Column 3", "Column 4", "Column 5", "Column 6", "Column 7"],
+                [""],
+                [""],
+                [""],
+                [""],
+                [""],
+                [""],
+                [""],
+                [""],
+                [""],
+                [""]
             ],
             mergedCells: [],
             cellColors: {},
@@ -830,9 +838,17 @@ function createNewSheet() {
         }
         sheets[sheetName] = {
             tableData: [
-                ["Column 1", "Column 2", "Column 3"],
-                ["", "", ""],
-                ["", "", ""]
+                ["Column 1", "Column 2", "Column 3", "Column 4", "Column 5", "Column 6", "Column 7"],
+                [""],
+                [""],
+                [""],
+                [""],
+                [""],
+                [""],
+                [""],
+                [""],
+                [""],
+                [""]
             ],
             mergedCells: [],
             cellColors: {},
