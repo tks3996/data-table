@@ -10,14 +10,14 @@
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
-
+    
     <link rel="stylesheet" href="./css/style.css">
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="./script/script.js"></script>
 </head>
 
 <body>
-    <!-- Welcome Popup Modal -->
     <div id="welcomeModal" class="modal">
         <div class="modal-content">
             <span id="closeModal" class="close-btn">×</span>
@@ -41,22 +41,24 @@
         <div class="undo-redo-box">
             <button id="undoBtn" onclick="undo()"><span>↶</span> Undo</button>
             <button id="redoBtn" onclick="redo()">Redo <span>↷</span></button>
-        </div>  
+        </div> 
         
         <h2>Swipewire</h2>
         <div style="display: flex; justify-content: space-between; align-items: center;">
+            
             <div class="attach-file-box">
                 <input type="file" id="excelFile" accept=".xlsx, .xls">
-                <button onclick="clearTable()" class="clear">Clear</button>
+                <button id="clearBtn" onclick="clearTable()" class="clear">Clear</button>
             </div>
             
             <div class="btn-container">
                 <button id="editBtn" onclick="toggleEdit()">Edit</button>
-                <button onclick="createNewTable()" class="new-table">New Table</button>
-                <button onclick="createNewSheet()" class="new-sheet">New Sheet</button>
-                <button onclick="exportToExcel()">Export to Excel</button>
-                <button onclick="exportToPDF()">Export to PDF</button>
+                <button id="newTableBtn" onclick="createNewTable()" class="new-table">New Table</button>
+                <button id="newSheetBtn" onclick="createNewSheet()" class="new-sheet">New Sheet</button>
+                <button id="exportExcelBtn" onclick="exportToExcel()">Export to Excel</button>
+                <button id="exportPDFBtn" onclick="exportToPDF()">Export to PDF</button>
             </div>
+            
         </div>
     </div>
     <table id="dataTable" class="display" style="width:100%; overflow: scroll;">

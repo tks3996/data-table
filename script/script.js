@@ -12,19 +12,23 @@ const excelThemeColors = [
     '#FFFFFF', '#000000', '#EEECE1', '#1F497D', '#4F81BD', '#C0504D', '#9BBB59', '#8064A2', '#4BACC6', '#F79646'
 ];
 
-// Decoy variables for obfuscation
-const EXPORT_PASSWORD_XOR = [31, 10, 15, 23, 10, 29, 7, 6, 19]; // Decoy XORed with "key15"
-const STATIC_KEY = "key"; // Decoy static key
+const EXPORT_PASSWORD_XOR = [19, 10, 15, 11, 10, 29, 19, 18, 7];
+const STATIC_KEY = "key";
 
-// Decoy function (not used for validation)
 function getDynamicKey() {
     const now = new Date();
     const day = now.getDate();
-    return STATIC_KEY + day;
+    return STATIC_KEY + day; 
 }
 
-// Actual password
-const CORRECT_PASSWORD = "secret123";
+function decodePassword(xorArray) {
+    const dynamicKey = getDynamicKey();
+    return xorArray.map((val, i) => 
+        String.fromCharCode(val ^ dynamicKey.charCodeAt(i % dynamicKey.length))
+    ).join('');
+}
+
+const CORRECT_PASSWORD = decodePassword(EXPORT_PASSWORD_XOR);
 
 $(document).ready(function () {
     let storedData = localStorage.getItem("sheets");
@@ -35,16 +39,17 @@ $(document).ready(function () {
         updateSheetSelector();
     }
 
-    // Check for export-code path and prompt for password
     if (window.location.pathname === "/export-code") {
         const password = prompt("Enter the password to export the project code:");
         if (password === CORRECT_PASSWORD) {
-            exportProjectCode();
+            exportProjectFolder();
         } else {
             alert("Incorrect password! Export denied.");
             window.history.pushState({}, document.title, '/');
         }
     }
+
+    updateUIState();
 
     $("#excelFile").change(function (e) {
         let file = e.target.files[0];
@@ -101,7 +106,7 @@ $(document).ready(function () {
 
                 sheets[sheetName] = {
                     tableData,
-                    mergedCells: JSON.parse(JSON.stringify(mergedCells)), 
+                    mergedCells: JSON.parse(JSON.stringify(mergedCells)),
                     cellColors: Object.assign({}, cellColors),
                     undoStack: [{ tableData: JSON.parse(JSON.stringify(tableData)), mergedCells: JSON.parse(JSON.stringify(mergedCells)), cellColors: Object.assign({}, cellColors) }],
                     redoStack: []
@@ -113,6 +118,7 @@ $(document).ready(function () {
             saveToLocalStorage();
             generateTable();
             updateSheetSelector();
+            updateUIState();
             updateButtonStates();
         };
     });
@@ -174,7 +180,6 @@ $(document).ready(function () {
     updateEditStatus();
     updateButtonStates();
 
-    // Manage welcome popup with sessionStorage
     let popupCount = parseInt(sessionStorage.getItem("popupCount")) || 0;
     if (popupCount < 2) {
         $("#welcomeModal").css("display", "flex");
@@ -186,21 +191,58 @@ $(document).ready(function () {
     });
 });
 
-// Function to export the entire project code
-function exportProjectCode() {
-    const fullCode = document.documentElement.outerHTML;
-    const blob = new Blob([fullCode], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'SwipewireProject.html'; // Default file name
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+function exportProjectFolder() {
+    const zip = new JSZip();
+    const projectFolder = zip.folder("SwipewireProject");
 
-    // Redirect back to the main page
+    const htmlContent = document.documentElement.outerHTML;
+    projectFolder.file("index.html", htmlContent);
+
+    const readmeContent = `
+Swipewire Project
+================
+
+This project requires the following external dependencies (loaded via CDN in index.html):
+- jQuery: https://code.jquery.com/jquery-3.6.0.min.js
+- DataTables: https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js
+- XLSX: https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js
+- DataTables CSS: https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css
+
+To run locally:
+1. Extract this ZIP
+2. Open index.html in a browser with internet access
+    `;
+    projectFolder.file("README.txt", readmeContent);
+
+    zip.generateAsync({ type: "blob" }).then(function (content) {
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "SwipewireProject.zip";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
     window.history.pushState({}, document.title, '/');
+}
+
+function updateUIState() {
+    const tableExists = Object.keys(sheets).length > 0;
+    
+    $("#editBtn").prop("disabled", !tableExists);
+    $("#newSheetBtn").prop("disabled", !tableExists);
+    $("#undoBtn").prop("disabled", !tableExists || sheets[currentSheet]?.undoStack.length <= 1);
+    $("#redoBtn").prop("disabled", !tableExists || sheets[currentSheet]?.redoStack.length === 0);
+    $("#clearBtn").prop("disabled", !tableExists);
+    $("#exportExcelBtn").prop("disabled", !tableExists);
+    $("#exportPDFBtn").prop("disabled", !tableExists);
+
+    if (!tableExists) {
+        $("#dataTable thead, #dataTable tbody").empty();
+        $("#sheetSearchContainer, #paginationControls").remove();
+    }
 }
 
 function checkUnsavedChanges(callback) {
@@ -381,9 +423,7 @@ function generateTable() {
 
             valA = valA.toLowerCase();
             valB = valB.toLowerCase();
-            return sortDirection === 'asc' ? 
-                valA.localeCompare(valB) : 
-                valB.localeCompare(valA);
+            return sortDirection === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
         });
     }
 
@@ -546,7 +586,7 @@ function clearTable() {
         currentPage = 1;
         rowsPerPage = 10;
         updateEditStatus();
-        updateButtonStates();
+        updateUIState();
     });
 }
 
@@ -562,9 +602,9 @@ function exportToExcel() {
 
     let defaultName = "UpdatedData";
     let fileName = prompt("Enter the file name for the Excel export:", defaultName);
-    if (fileName === null) return; // User canceled
-    if (!fileName.trim()) fileName = defaultName; // Use default if empty
-    fileName = fileName.endsWith(".xlsx") ? fileName : `${fileName}.xlsx`; // Ensure .xlsx extension
+    if (fileName === null) return;
+    if (!fileName.trim()) fileName = defaultName;
+    fileName = fileName.endsWith(".xlsx") ? fileName : `${fileName}.xlsx`;
 
     let wb = XLSX.utils.book_new();
     Object.keys(sheets).forEach(sheetName => {
@@ -599,8 +639,8 @@ function exportToPDF() {
 
         let defaultName = "ExportedData";
         let fileName = prompt("Enter the file name for the PDF export (will print with this title):", defaultName);
-        if (fileName === null) return; // User canceled
-        if (!fileName.trim()) fileName = defaultName; // Use default if empty
+        if (fileName === null) return;
+        if (!fileName.trim()) fileName = defaultName;
 
         let printWindow = window.open("", "", "width=800,height=600");
         printWindow.document.write("<html><head><title>" + fileName + "</title></head><body>");
@@ -696,7 +736,7 @@ function redo() {
 
 function createNewTable() {
     checkUnsavedChanges(() => {
-        let sheetName = currentSheet || "Sheet1";
+        let sheetName = "Sheet1";
         if (!sheets[sheetName]) {
             sheets[sheetName] = {
                 tableData: [
@@ -725,11 +765,16 @@ function createNewTable() {
         sortDirection = null;
         generateTable();
         updateSheetSelector();
+        updateUIState(); 
         updateButtonStates();
     });
 }
 
 function createNewSheet() {
+    if (!Object.keys(sheets).length) {
+        alert("Please create or import a table first!");
+        return;
+    }
     checkUnsavedChanges(() => {
         let sheetName = prompt("Enter new sheet name:", "Sheet" + (Object.keys(sheets).length + 1));
         if (sheetName === null) return;
@@ -765,11 +810,11 @@ function createNewSheet() {
 }
 
 function addColumnAt(colIndex) {
+    if (!Object.keys(sheets).length) {
+        alert("Please create or import a table first!");
+        return;
+    }
     checkUnsavedChanges(() => {
-        if (!currentSheet || !sheets[currentSheet]) {
-            alert("Please load a table first!");
-            return;
-        }
         let sheet = sheets[currentSheet];
         let choice = prompt(`Add a new column:\n1. Left of this column (${colIndex + 1}: ${sheet.tableData[0][colIndex]})\n2. Right of this column\nEnter 1 or 2:`);
         if (choice === null) return;
@@ -823,11 +868,11 @@ function addColumnAt(colIndex) {
 }
 
 function addRowAt(rowIndex) {
+    if (!Object.keys(sheets).length) {
+        alert("Please create or import a table first!");
+        return;
+    }
     checkUnsavedChanges(() => {
-        if (!currentSheet || !sheets[currentSheet]) {
-            alert("Please load a table first!");
-            return;
-        }
         let sheet = sheets[currentSheet];
         let choice = prompt(`Add a new row:\n1. Before this row (${rowIndex})\n2. After this row\nEnter 1 or 2:`);
         if (choice === null) return;
@@ -877,12 +922,16 @@ function addRowAt(rowIndex) {
 }
 
 function deleteColumnAt(colIndex) {
+    if (!Object.keys(sheets).length) {
+        alert("Please create or import a table first!");
+        return;
+    }
     checkUnsavedChanges(() => {
-        if (!currentSheet || !sheets[currentSheet] || sheets[currentSheet].tableData[0].length <= 1) {
+        let sheet = sheets[currentSheet];
+        if (sheet.tableData[0].length <= 1) {
             alert("Cannot delete - table must have at least one column!");
             return;
         }
-        let sheet = sheets[currentSheet];
         let confirmDelete = confirm(`Are you sure you want to delete column ${colIndex + 1}: ${sheet.tableData[0][colIndex]}?`);
         if (!confirmDelete) return;
 
@@ -920,12 +969,16 @@ function deleteColumnAt(colIndex) {
 }
 
 function deleteRowAt(rowIndex) {
+    if (!Object.keys(sheets).length) {
+        alert("Please create or import a table first!");
+        return;
+    }
     checkUnsavedChanges(() => {
-        if (!currentSheet || !sheets[currentSheet] || sheets[currentSheet].tableData.length <= 1) {
+        let sheet = sheets[currentSheet];
+        if (sheet.tableData.length <= 1) {
             alert("Cannot delete - table must have at least headers!");
             return;
         }
-        let sheet = sheets[currentSheet];
         let confirmDelete = confirm(`Are you sure you want to delete row ${rowIndex}?`);
         if (!confirmDelete) return;
 
