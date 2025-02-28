@@ -45,76 +45,75 @@ $(document).ready(function () {
 
     updateUIState();
 
-    $("#excelFile").change(function (e) {
+    $("#excelFile").on("click", function (e) {
+        if (isEditing && editingCells.length > 0) {
+            let hasChanges = editingCells.some(cell => {
+                let row = $(cell).data("row") !== undefined ? $(cell).data("row") : 0;
+                let col = $(cell).data("col") - ($(cell).closest("th").hasClass("col-number") ? 1 : 0);
+                let cellKey = `${row},${col}`;
+                let text = $(cell).hasClass("editable-col-name") ? $(cell).text() : $(cell).text().replace(/^\d+: /, '').replace(/[▲▼]/g, '').trim();
+                return text !== originalValues[cellKey];
+            });
+            if (hasChanges) {
+                let proceed = confirm("You have unsaved changes. Do you want to save them before selecting a new file? Click OK to save and proceed, Cancel to discard and proceed.");
+                if (proceed) {
+                    saveToLocalStorage();
+                } else {
+                    let sheet = sheets[currentSheet];
+                    editingCells.forEach(cell => {
+                        let row = $(cell).data("row") !== undefined ? $(cell).data("row") : 0;
+                        let col = $(cell).data("col") - ($(cell).closest("th").hasClass("col-number") ? 1 : 0);
+                        let cellKey = `${row},${col}`;
+                        sheet.tableData[row][col] = originalValues[cellKey];
+                        if (row === 0) {
+                            $(cell).text(originalValues[cellKey]);
+                        } else {
+                            $(cell).text(originalValues[cellKey]);
+                        }
+                    });
+                    sheet.undoStack.pop();
+                    sheet.redoStack = [];
+                    editingCells = [];
+                    originalValues = {};
+                    isEditing = false;
+                    $("#editBtn").text("Edit");
+                    updateEditStatus();
+                    generateTable();
+                }
+            }
+        }
+    });
+
+    $("#excelFile").on("change", function (e) {
         let file = e.target.files[0];
         if (!file) return;
+        processFile(file);
+    });
 
-        let reader = new FileReader();
-        reader.readAsArrayBuffer(file);
+    $("#dataTable").on("dragover", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).addClass("dragover");
+    });
 
-        reader.onload = function (event) {
-            let data = new Uint8Array(event.target.result);
-            let workbook = XLSX.read(data, { type: "array" });
-            sheets = {};
+    $("#dataTable").on("dragleave", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).removeClass("dragover");
+    });
 
-            workbook.SheetNames.forEach(sheetName => {
-                let sheet = workbook.Sheets[sheetName];
-                let range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
-                let tableData = [];
-                let mergedCells = sheet['!merges'] || [];
-                let cellColors = {};
-
-                for (let r = 0; r <= range.e.r; r++) {
-                    tableData[r] = [];
-                    for (let c = 0; c <= range.e.c; c++) {
-                        tableData[r][c] = '';
-                    }
-                }
-
-                for (let cell in sheet) {
-                    if (cell[0] === '!') continue;
-                    let {r, c} = XLSX.utils.decode_cell(cell);
-                    tableData[r][c] = sheet[cell].w !== undefined ? sheet[cell].w : sheet[cell].v || '';
-                    if (sheet[cell].s && sheet[cell].s.bgColor) {
-                        let bgColor = sheet[cell].s.bgColor;
-                        let color;
-                        if (bgColor.rgb) {
-                            color = `#${bgColor.rgb}`;
-                        } else if (bgColor.theme !== undefined && excelThemeColors[bgColor.theme]) {
-                            color = excelThemeColors[bgColor.theme];
-                        }
-                        if (color) cellColors[`${r},${c}`] = color;
-                    }
-                }
-
-                mergedCells.forEach(merge => {
-                    let value = tableData[merge.s.r][merge.s.c] || '';
-                    let color = cellColors[`${merge.s.r},${merge.s.c}`] || '';
-                    for (let r = merge.s.r; r <= merge.e.r; r++) {
-                        for (let c = merge.s.c; c <= merge.e.c; c++) {
-                            tableData[r][c] = value;
-                            if (color) cellColors[`${r},${c}`] = color;
-                        }
-                    }
-                });
-
-                sheets[sheetName] = {
-                    tableData,
-                    mergedCells: JSON.parse(JSON.stringify(mergedCells)),
-                    cellColors: Object.assign({}, cellColors),
-                    undoStack: [{ tableData: JSON.parse(JSON.stringify(tableData)), mergedCells: JSON.parse(JSON.stringify(mergedCells)), cellColors: Object.assign({}, cellColors) }],
-                    redoStack: []
-                };
+    $("#dataTable").on("drop", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).removeClass("dragover");
+        let file = e.originalEvent.dataTransfer.files[0];
+        if (file && (file.name.endsWith(".xlsx") || file.name.endsWith(".xls"))) {
+            checkUnsavedChanges(() => {
+                processFile(file);
             });
-
-            currentSheet = workbook.SheetNames[0];
-            currentPage = 1;
-            saveToLocalStorage();
-            generateTable();
-            updateSheetSelector();
-            updateUIState();
-            updateButtonStates();
-        };
+        } else {
+            alert("Please drop a valid Excel file (.xlsx or .xls)");
+        }
     });
 
     $("#dataTable").on("dblclick", "td:not(.row-number)", function () {
@@ -147,26 +146,27 @@ $(document).ready(function () {
         });
     });
 
-    $("#dataTable").on("dblclick", "th.col-number", function (e) {
-        if (isEditing && e.target.tagName !== "SPAN" && !$(e.target).hasClass("add-btn") && !$(e.target).hasClass("delete-btn")) {
-            let col = $(this).data("col") - 1;
+    $("#dataTable").on("dblclick", "th.col-number span.editable-col-name", function (e) {
+        if (isEditing) {
+            let colHeader = $(this).closest("th.col-number");
+            let col = colHeader.data("col") - 1;
             let cellKey = `0,${col}`;
             if (!editingCells.includes(this)) {
                 editingCells.push(this);
-                originalValues[cellKey] = sheets[currentSheet].tableData[0][col];
+                originalValues[cellKey] = sheets[currentSheet].tableData[0][col] || '';
             }
             $(this).attr("contenteditable", "true").focus();
+            e.stopPropagation();
         }
     });
 
-    $("#dataTable").on("input", "th[contenteditable='true']", function () {
+    $("#dataTable").on("input", "th.col-number span.editable-col-name[contenteditable='true']", function () {
         let sheet = sheets[currentSheet];
-        let col = $(this).data("col") - 1;
-        let strippedText = $(this).text().replace(/^\d+: /, '').replace(/[▲▼]/g, '').trim();
-        sheet.tableData[0][col] = strippedText;
+        let col = $(this).closest("th.col-number").data("col") - 1;
+        sheet.tableData[0][col] = $(this).text();
     });
 
-    $("#dataTable").on("blur", "th[contenteditable='true']", function () {
+    $("#dataTable").on("blur", "th.col-number span.editable-col-name[contenteditable='true']", function () {
         $(this).attr("contenteditable", "false");
         generateTable();
     });
@@ -184,6 +184,80 @@ $(document).ready(function () {
         $("#welcomeModal").hide();
     });
 });
+
+function processFile(file) {
+    let reader = new FileReader();
+    reader.readAsArrayBuffer(file);
+
+    reader.onload = function (event) {
+        let data = new Uint8Array(event.target.result);
+        let workbook = XLSX.read(data, { type: "array" });
+        sheets = {};
+
+        workbook.SheetNames.forEach(sheetName => {
+            let sheet = workbook.Sheets[sheetName];
+            let range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+            let tableData = [];
+            let mergedCells = sheet['!merges'] || [];
+            let cellColors = {};
+
+            for (let r = 0; r <= range.e.r; r++) {
+                tableData[r] = [];
+                for (let c = 0; c <= range.e.c; c++) {
+                    tableData[r][c] = '';
+                }
+            }
+
+            for (let cell in sheet) {
+                if (cell[0] === '!') continue;
+                let {r, c} = XLSX.utils.decode_cell(cell);
+                tableData[r][c] = sheet[cell].w !== undefined ? sheet[cell].w : sheet[cell].v || '';
+                if (sheet[cell].s && sheet[cell].s.bgColor) {
+                    let bgColor = sheet[cell].s.bgColor;
+                    let color;
+                    if (bgColor.rgb) {
+                        color = `#${bgColor.rgb}`;
+                    } else if (bgColor.theme !== undefined && excelThemeColors[bgColor.theme]) {
+                        color = excelThemeColors[bgColor.theme];
+                    }
+                    if (color) cellColors[`${r},${c}`] = color;
+                }
+            }
+
+            mergedCells.forEach(merge => {
+                let value = tableData[merge.s.r][merge.s.c] || '';
+                let color = cellColors[`${merge.s.r},${merge.s.c}`] || '';
+                for (let r = merge.s.r; r <= merge.e.r; r++) {
+                    for (let c = merge.s.c; c <= merge.e.c; c++) {
+                        tableData[r][c] = value;
+                        if (color) cellColors[`${r},${c}`] = color;
+                    }
+                }
+            });
+
+            sheets[sheetName] = {
+                tableData,
+                mergedCells: JSON.parse(JSON.stringify(mergedCells)),
+                cellColors: Object.assign({}, cellColors),
+                undoStack: [{ tableData: JSON.parse(JSON.stringify(tableData)), mergedCells: JSON.parse(JSON.stringify(mergedCells)), cellColors: Object.assign({}, cellColors) }],
+                redoStack: []
+            };
+        });
+
+        currentSheet = workbook.SheetNames[0];
+        currentPage = 1;
+        // Reset edit mode when a new file is loaded
+        isEditing = false;
+        $("#editBtn").text("Edit");
+        editingCells = [];
+        originalValues = {};
+        saveToLocalStorage();
+        generateTable();
+        updateSheetSelector();
+        updateEditStatus();
+        updateButtonStates();
+    };
+}
 
 function updateUIState() {
     const tableExists = Object.keys(sheets).length > 0;
@@ -207,9 +281,10 @@ function checkUnsavedChanges(callback) {
         let newValues = {};
         editingCells.forEach(cell => {
             let row = $(cell).data("row") !== undefined ? $(cell).data("row") : 0;
-            let col = $(cell).data("col") - ($(cell).hasClass("col-number") ? 1 : 0);
+            let col = $(cell).data("col") - ($(cell).closest("th").hasClass("col-number") ? 1 : 0);
             let cellKey = `${row},${col}`;
-            newValues[cellKey] = $(cell).text().replace(/^\d+: /, '').replace(/[▲▼]/g, '').trim();
+            let text = $(cell).hasClass("editable-col-name") ? $(cell).text() : $(cell).text().replace(/^\d+: /, '').replace(/[▲▼]/g, '').trim();
+            newValues[cellKey] = text;
         });
         let hasChanges = Object.keys(newValues).some(key => newValues[key] !== originalValues[key]);
         if (hasChanges) {
@@ -233,25 +308,30 @@ function promptSaveOrDiscard(callback = () => {}) {
     let newValues = {};
     editingCells.forEach(cell => {
         let row = $(cell).data("row") !== undefined ? $(cell).data("row") : 0;
-        let col = $(cell).data("col") - ($(cell).hasClass("col-number") ? 1 : 0);
+        let col = $(cell).data("col") - ($(cell).closest("th").hasClass("col-number") ? 1 : 0);
         let cellKey = `${row},${col}`;
-        newValues[cellKey] = $(cell).text().replace(/^\d+: /, '').replace(/[▲▼]/g, '').trim();
+        let text = $(cell).hasClass("editable-col-name") ? $(cell).text() : $(cell).text().replace(/^\d+: /, '').replace(/[▲▼]/g, '').trim();
+        newValues[cellKey] = text;
         $(cell).attr("contenteditable", "false");
     });
 
     let hasChanges = Object.keys(newValues).some(key => newValues[key] !== originalValues[key]);
     if (hasChanges) {
-        let response = confirm("Do you want to save changes? Click OK to save, Cancel to discard.");
+        let response = confirm("You have unsaved changes. Do you want to save them before proceeding? Click OK to save, Cancel to discard.");
         if (response) {
             saveToLocalStorage();
         } else {
             let sheet = sheets[currentSheet];
             for (let cell of editingCells) {
                 let row = $(cell).data("row") !== undefined ? $(cell).data("row") : 0;
-                let col = $(cell).data("col") - ($(cell).hasClass("col-number") ? 1 : 0);
+                let col = $(cell).data("col") - ($(cell).closest("th").hasClass("col-number") ? 1 : 0);
                 let cellKey = `${row},${col}`;
                 sheet.tableData[row][col] = originalValues[cellKey];
-                $(cell).text(row === 0 ? `${col + 1}: ${originalValues[cellKey]}` : originalValues[cellKey]);
+                if (row === 0) {
+                    $(cell).text(originalValues[cellKey]);
+                } else {
+                    $(cell).text(originalValues[cellKey]);
+                }
             }
             sheet.undoStack.pop();
             sheet.redoStack = [];
@@ -390,7 +470,7 @@ function generateTable() {
         let cell = sheet.tableData[0][i] || '';
         let ascClass = sortColumn === (i + 1) && sortDirection === 'asc' ? 'active' : '';
         let descClass = sortColumn === (i + 1) && sortDirection === 'desc' ? 'active' : '';
-        tableHead += `<th class='col-number' data-col="${i + 1}"><span class="col-num-style">${i + 1}:</span> ${cell}<span class="sort-arrows"><span class="asc ${ascClass}" data-dir="asc">▲</span><span class="desc ${descClass}" data-dir="desc">▼</span></span><div class="addAtBtnColBox"><span class="add-btn" onclick="addColumnAt(${i})">+</span><span class="delete-btn" onclick="deleteColumnAt(${i})">−</span></div></th>`;
+        tableHead += `<th class='col-number' data-col="${i + 1}"><span class="col-num-style">${i + 1}:</span><span class="editable-col-name">${cell}</span><span class="sort-arrows"><span class="asc ${ascClass}" data-dir="asc">▲</span><span class="desc ${descClass}" data-dir="desc">▼</span></span><div class="addAtBtnColBox"><span class="add-btn" onclick="addColumnAt(${i})">+</span><span class="delete-btn" onclick="deleteColumnAt(${i})">−</span></div></th>`;
     }
     tableHead += "</tr>";
 

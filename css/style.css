@@ -558,3 +558,19 @@ td.row-number:hover .addAtBtnRowBox {
 .close-btn:hover {
     color: #00b8d4;
 }
+.editable-col-name {
+    display: inline-block;
+    min-width: 50px;
+    width: 100%;
+    min-height: 25px;
+    cursor: text;
+    align-content: center;
+}
+
+th span.editable-col-name[contenteditable="true"] {
+    background: rgb(186 209 255) !important;
+    border: none;
+    outline: none;
+    color: #2c3e50;
+    border-bottom: 2px solid #26157f;
+}
