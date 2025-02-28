@@ -385,6 +385,9 @@ button span {
     justify-content: center;
     align-items: center;
     gap: 10px;
+    z-index: 2;
+    position: relative;
+    bottom: 35px;
 }
 
 .pagination-controls select,
@@ -573,4 +576,75 @@ th span.editable-col-name[contenteditable="true"] {
     outline: none;
     color: #2c3e50;
     border-bottom: 2px solid #26157f;
+}
+
+
+.sheet-list-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: linear-gradient(135deg, #d6e0f0, #b8c8e8);
+    padding: 10px 0;
+    z-index: 2;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.sheet-list {
+    max-width: 90%; /* Limits width to fit within viewport with padding */
+    margin: 0 auto;
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding: 0 10px;
+}
+
+.sheet-tab {
+    padding: 5px 15px;
+    background: #ffffff;
+    border-radius: 15px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #2c3e50;
+    transition: all 0.3s ease;
+}
+
+.sheet-tab:hover {
+    background: linear-gradient(45deg, #5a3bff, #00b8d4);
+    color: #ffffff;
+}
+
+.sheet-tab.active-sheet {
+    background: linear-gradient(45deg, #5a3bff, #00b8d4);
+    color: #ffffff;
+    font-weight: bold;
+}
+
+.context-item {
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+.context-item:hover {
+    background: #f0f0f0;
+}
+
+/* Adjust table margin to avoid overlap */
+#dataTable {
+    margin-bottom: 50px; /* Height of sheet list + padding */
+}
+
+/* Scrollbar styling for sheet list */
+.sheet-list::-webkit-scrollbar {
+    height: 8px;
+}
+
+.sheet-list::-webkit-scrollbar-thumb {
+    background: #5a3bff;
+    border-radius: 4px;
+}
+
+.sheet-list::-webkit-scrollbar-track {
+    background: #d6e0f0;
 }

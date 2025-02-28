@@ -29,7 +29,7 @@ $(document).ready(function () {
         sheets = JSON.parse(storedData);
         currentSheet = Object.keys(sheets)[0];
         generateTable();
-        updateSheetSelector();
+        updateSheetList(); // Replace updateSheetSelector
     }
 
     if (window.location.pathname === "/export-code") {
@@ -183,6 +183,49 @@ $(document).ready(function () {
     $("#closeModal").on("click", function () {
         $("#welcomeModal").hide();
     });
+
+    // Context menu for sheet renaming
+    $(document).on("contextmenu", ".sheet-tab", function (e) {
+        e.preventDefault();
+        let sheetName = $(this).data("sheet");
+        $("#contextMenu").remove();
+
+        // Create context menu
+        let contextMenu = $(`
+            <div id="contextMenu" style="position: absolute; background: white; border: 1px solid #ccc; padding: 5px; z-index: 1000;">
+                <div class="context-item" onclick="renameSheet('${sheetName}')">Edit Sheet Name</div>
+            </div>
+        `);
+        $("body").append(contextMenu);
+
+        // Calculate position to stay within viewport
+        let menuHeight = contextMenu.outerHeight();
+        let menuWidth = contextMenu.outerWidth();
+        let viewportHeight = $(window).height();
+        let viewportWidth = $(window).width();
+        let topPos = e.pageY;
+        let leftPos = e.pageMagickX;
+
+        // Adjust top position (above if near bottom, below otherwise)
+        if (topPos + menuHeight > viewportHeight) {
+            topPos = e.pageY - menuHeight; // Position above the click
+        }
+        if (topPos < 0) topPos = 0; // Ensure it doesn’t go above the top
+
+        // Adjust left position (left if near right edge)
+        if (leftPos + menuWidth > viewportWidth) {
+            leftPos = e.pageX - menuWidth; // Position to the left
+        }
+        if (leftPos < 0) leftPos = 0; // Ensure it doesn’t go beyond the left edge
+
+        contextMenu.css({ top: topPos + "px", left: leftPos + "px" });
+    });
+
+    $(document).on("click", function (e) {
+        if (!$(e.target).closest("#contextMenu, .sheet-tab").length) {
+            $("#contextMenu").remove();
+        }
+    });
 });
 
 function processFile(file) {
@@ -246,14 +289,13 @@ function processFile(file) {
 
         currentSheet = workbook.SheetNames[0];
         currentPage = 1;
-        // Reset edit mode when a new file is loaded
         isEditing = false;
         $("#editBtn").text("Edit");
         editingCells = [];
         originalValues = {};
         saveToLocalStorage();
         generateTable();
-        updateSheetSelector();
+        updateSheetList(); // Replace updateSheetSelector
         updateEditStatus();
         updateButtonStates();
     };
@@ -371,26 +413,51 @@ function updateButtonStates() {
     $("#redoBtn").prop("disabled", sheet.redoStack.length === 0 || !sheet.tableData.length);
 }
 
-function updateSheetSelector() {
-    let selector = $("#sheetSelector");
-    if (!selector.length) {
-        selector = $('<select id="sheetSelector" class="sheet-selector"></select>').appendTo(".sheet-search-container");
-        selector.on("change", function () {
+// New function to update sheet list at bottom
+function updateSheetList() {
+    let sheetListContainer = $("#sheetListContainer");
+    if (!sheetListContainer.length) {
+        sheetListContainer = $('<div id="sheetListContainer" class="sheet-list-container"><div id="sheetList" class="sheet-list"></div></div>').appendTo("body");
+    }
+    let sheetList = $("#sheetList");
+    sheetList.empty();
+    Object.keys(sheets).forEach(sheetName => {
+        let sheetTab = $(`<span class="sheet-tab" data-sheet="${sheetName}">${sheetName}</span>`);
+        if (sheetName === currentSheet) {
+            sheetTab.addClass("active-sheet");
+        }
+        sheetTab.on("click", function () {
             checkUnsavedChanges(() => {
-                currentSheet = $(this).val();
+                currentSheet = sheetName;
                 currentPage = 1;
                 sortColumn = null;
                 sortDirection = null;
                 generateTable();
+                updateSheetList();
                 updateButtonStates();
             });
         });
-    }
-    selector.empty();
-    Object.keys(sheets).forEach(sheetName => {
-        selector.append(`<option value="${sheetName}">${sheetName}</option>`);
+        sheetList.append(sheetTab);
     });
-    selector.val(currentSheet);
+}
+
+// Function to rename sheet
+function renameSheet(oldName) {
+    let newName = prompt("Enter new sheet name:", oldName);
+    if (newName === null || newName === oldName) return;
+    if (!newName || sheets[newName]) {
+        alert("Sheet name cannot be empty or already exists!");
+        return;
+    }
+    sheets[newName] = sheets[oldName];
+    delete sheets[oldName];
+    if (currentSheet === oldName) {
+        currentSheet = newName;
+    }
+    saveToLocalStorage();
+    generateTable();
+    updateSheetList();
+    $("#contextMenu").remove();
 }
 
 function generateTable() {
@@ -416,7 +483,6 @@ function generateTable() {
     let container = $("#sheetSearchContainer");
     if (!container.length) {
         container = $('<div id="sheetSearchContainer" class="sheet-search-container"></div>').insertBefore("#dataTable");
-        updateSheetSelector();
         $('<input type="text" id="searchFilter" placeholder="Search...">').appendTo(container).on("input", function () {
             checkUnsavedChanges(() => {
                 currentPage = 1;
@@ -624,6 +690,7 @@ function clearTable() {
         rowsPerPage = 10;
         updateEditStatus();
         updateUIState();
+        updateSheetList(); // Update sheet list
     });
 }
 
@@ -789,17 +856,9 @@ function createNewTable() {
         let sheetName = "Sheet1";
         sheets[sheetName] = {
             tableData: [
-                ["Column 1", "Column 2", "Column 3", "Column 4", "Column 5", "Column 6", "Column 7"],
-                ["", "", "", "", "", "", ""],
-                ["", "", "", "", "", "", ""],
-                ["", "", "", "", "", "", ""],
-                ["", "", "", "", "", "", ""],
-                ["", "", "", "", "", "", ""],
-                ["", "", "", "", "", "", ""],
-                ["", "", "", "", "", "", ""],
-                ["", "", "", "", "", "", ""],
-                ["", "", "", "", "", "", ""],
-                ["", "", "", "", "", "", ""]
+                ["Column 1", "Column 2", "Column 3"],
+                ["", "", ""],
+                ["", "", ""]
             ],
             mergedCells: [],
             cellColors: {},
@@ -818,7 +877,7 @@ function createNewTable() {
         sortColumn = null;
         sortDirection = null;
         generateTable();
-        updateSheetSelector();
+        updateSheetList();
         updateUIState();
         updateButtonStates();
     });
@@ -838,17 +897,9 @@ function createNewSheet() {
         }
         sheets[sheetName] = {
             tableData: [
-                ["Column 1", "Column 2", "Column 3", "Column 4", "Column 5", "Column 6", "Column 7"],
-                ["", "","", "","", "",""],
-                ["", "","", "","", "",""],
-                ["", "","", "","", "",""],
-                ["", "","", "","", "",""],
-                ["", "","", "","", "",""],
-                ["", "","", "","", "",""],
-                ["", "","", "","", "",""],
-                ["", "","", "","", "",""],
-                ["", "","", "","", "",""],
-                ["", "","", "","", "",""]
+                ["Column 1", "Column 2", "Column 3"],
+                ["", "", ""],
+                ["", "", ""]
             ],
             mergedCells: [],
             cellColors: {},
@@ -866,7 +917,7 @@ function createNewSheet() {
         sortColumn = null;
         sortDirection = null;
         generateTable();
-        updateSheetSelector();
+        updateSheetList();
         updateButtonStates();
     });
 }
@@ -1089,3 +1140,4 @@ window.addColumnAt = addColumnAt;
 window.addRowAt = addRowAt;
 window.deleteColumnAt = deleteColumnAt;
 window.deleteRowAt = deleteRowAt;
+window.renameSheet = renameSheet;
