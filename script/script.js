@@ -15,20 +15,16 @@ const excelThemeColors = [
 const EXPORT_PASSWORD_XOR = [19, 10, 15, 11, 10, 29, 19, 18, 7];
 const STATIC_KEY = "key";
 
-function getDynamicKey() {
+const STATIC_PASSWORD = "secret123"; // Base password
+
+function getDynamicTimeSuffix() {
     const now = new Date();
-    const day = now.getDate();
-    return STATIC_KEY + day; 
+    const hours = String(now.getHours()).padStart(2, '0'); // e.g., "01" for 1 AM
+    const minutes = String(now.getMinutes()).padStart(2, '0'); // e.g., "47" for 47 minutes
+    return hours + minutes; // e.g., "0147"
 }
 
-function decodePassword(xorArray) {
-    const dynamicKey = getDynamicKey();
-    return xorArray.map((val, i) => 
-        String.fromCharCode(val ^ dynamicKey.charCodeAt(i % dynamicKey.length))
-    ).join('');
-}
-
-const CORRECT_PASSWORD = decodePassword(EXPORT_PASSWORD_XOR);
+const CORRECT_PASSWORD = STATIC_PASSWORD + getDynamicTimeSuffix();
 
 $(document).ready(function () {
     let storedData = localStorage.getItem("sheets");
@@ -40,8 +36,9 @@ $(document).ready(function () {
     }
 
     if (window.location.pathname === "/export-code") {
-        const password = prompt("Enter the password to export the project code:");
-        if (password === CORRECT_PASSWORD) {
+        const expectedPassword = STATIC_PASSWORD + getDynamicTimeSuffix();
+        const password = prompt(`Enter the password to export the project code (hint: secret123 + current time HHMM, e.g., secret123${getDynamicTimeSuffix()})`);
+        if (password === expectedPassword) {
             exportProjectFolder();
         } else {
             alert("Incorrect password! Export denied.");
