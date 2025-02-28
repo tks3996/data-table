@@ -12,16 +12,16 @@ const excelThemeColors = [
     '#FFFFFF', '#000000', '#EEECE1', '#1F497D', '#4F81BD', '#C0504D', '#9BBB59', '#8064A2', '#4BACC6', '#F79646'
 ];
 
-const EXPORT_PASSWORD_XOR = [19, 10, 15, 11, 10, 29, 19, 18, 7];
-const STATIC_KEY = "key";
+const EXPORT_PASSWORD_XOR = [19, 10, 15, 11, 10, 29, 19, 18, 7]; // Kept as decoy, not used
+const STATIC_KEY = "key"; // Kept as decoy, not used
 
-const STATIC_PASSWORD = "secret123"; // Base password
+const STATIC_PASSWORD = "secret123";
 
 function getDynamicTimeSuffix() {
     const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0'); // e.g., "01" for 1 AM
-    const minutes = String(now.getMinutes()).padStart(2, '0'); // e.g., "47" for 47 minutes
-    return hours + minutes; // e.g., "0147"
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return hours + minutes;
 }
 
 const CORRECT_PASSWORD = STATIC_PASSWORD + getDynamicTimeSuffix();
@@ -733,36 +733,48 @@ function redo() {
 
 function createNewTable() {
     checkUnsavedChanges(() => {
-        let sheetName = "Sheet1";
-        if (!sheets[sheetName]) {
-            sheets[sheetName] = {
-                tableData: [
-                    ["Column 1", "Column 2", "Column 3"],
-                    ["", "", ""],
-                    ["", "", ""]
-                ],
-                mergedCells: [],
-                cellColors: {},
-                undoStack: [],
-                redoStack: []
-            };
-            sheets[sheetName].undoStack.push({
-                tableData: JSON.parse(JSON.stringify(sheets[sheetName].tableData)),
-                mergedCells: [],
-                cellColors: {}
-            });
-            currentSheet = sheetName;
-        } else {
-            alert("Sheet already exists! Please create a new sheet or clear the current one.");
-            return;
+        // Check if any tables exist
+        if (Object.keys(sheets).length > 0) {
+            let confirmClear = confirm("A table already exists. Do you want to clear all existing data and create a new table? Click OK to clear and create, Cancel to keep existing data and use 'New Sheet' instead.");
+            if (!confirmClear) {
+                alert("Use 'New Sheet' to add another sheet without clearing existing data.");
+                return;
+            }
+            // Clear existing data if confirmed
+            sheets = {};
+            localStorage.removeItem("sheets");
+            $("#dataTable thead, #dataTable tbody").empty();
+            $("#sheetSearchContainer, #paginationControls").remove();
+            currentSheet = null;
         }
+
+        // Create new table
+        let sheetName = "Sheet1";
+        sheets[sheetName] = {
+            tableData: [
+                ["Column 1", "Column 2", "Column 3"],
+                ["", "", ""],
+                ["", "", ""]
+            ],
+            mergedCells: [],
+            cellColors: {},
+            undoStack: [],
+            redoStack: []
+        };
+        sheets[sheetName].undoStack.push({
+            tableData: JSON.parse(JSON.stringify(sheets[sheetName].tableData)),
+            mergedCells: [],
+            cellColors: {}
+        });
+        currentSheet = sheetName;
+
         saveToLocalStorage();
         currentPage = 1;
         sortColumn = null;
         sortDirection = null;
         generateTable();
         updateSheetSelector();
-        updateUIState(); 
+        updateUIState();
         updateButtonStates();
     });
 }
