@@ -12,27 +12,19 @@ const excelThemeColors = [
     '#FFFFFF', '#000000', '#EEECE1', '#1F497D', '#4F81BD', '#C0504D', '#9BBB59', '#8064A2', '#4BACC6', '#F79646'
 ];
 
-// Obfuscated password (XORed with "key15" as an example for day 15)
-const EXPORT_PASSWORD_XOR = [31, 10, 15, 23, 10, 29, 7, 6, 19]; // "secret123" XORed with "key15"
-const STATIC_KEY = "key"; // Static part of the key
+// Decoy variables for obfuscation
+const EXPORT_PASSWORD_XOR = [31, 10, 15, 23, 10, 29, 7, 6, 19]; // Decoy XORed with "key15"
+const STATIC_KEY = "key"; // Decoy static key
 
-// Function to generate the dynamic key based on current date
+// Decoy function (not used for validation)
 function getDynamicKey() {
     const now = new Date();
-    const day = now.getDate(); // Day of the month (1-31)
-    return STATIC_KEY + day; // e.g., "key15" on the 15th
+    const day = now.getDate();
+    return STATIC_KEY + day;
 }
 
-// Function to decode the password at runtime
-function decodePassword(xorArray) {
-    const dynamicKey = getDynamicKey();
-    return xorArray.map((val, i) => 
-        String.fromCharCode(val ^ dynamicKey.charCodeAt(i % dynamicKey.length))
-    ).join('');
-}
-
-// Define the correct password for comparison (this will be "secret123")
-const EXPORT_PASSWORD = decodePassword(EXPORT_PASSWORD_XOR);
+// Actual password
+const CORRECT_PASSWORD = "secret123";
 
 $(document).ready(function () {
     let storedData = localStorage.getItem("sheets");
@@ -46,7 +38,7 @@ $(document).ready(function () {
     // Check for export-code path and prompt for password
     if (window.location.pathname === "/export-code") {
         const password = prompt("Enter the password to export the project code:");
-        if (password === EXPORT_PASSWORD) {
+        if (password === CORRECT_PASSWORD) {
             exportProjectCode();
         } else {
             alert("Incorrect password! Export denied.");
