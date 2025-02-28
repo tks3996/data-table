@@ -5,16 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JQuery Data Table</title>
-
+    
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     
     <link rel="stylesheet" href="./css/style.css">
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="./script/script.js"></script>
 </head>
 
 <body>
@@ -34,7 +33,7 @@
             </ul>
         </div>
     </div>
-
+    
     <div class="sticky-top">
         <div id="editStatus"></div>
         <div id="editInstruction"></div>
@@ -53,10 +52,10 @@
             
             <div class="btn-container">
                 <button id="editBtn" onclick="toggleEdit()">Edit</button>
-                <button id="newTableBtn" onclick="createNewTable()" class="new-table">New Table</button>
-                <button id="newSheetBtn" onclick="createNewSheet()" class="new-sheet">New Sheet</button>
-                <button id="exportExcelBtn" onclick="exportToExcel()">Export to Excel</button>
-                <button id="exportPDFBtn" onclick="exportToPDF()">Export to PDF</button>
+                <button id="newTableBtn" onclick="createNewTable()" class="new-table"><span style="font-size: 16px;font-weight: bolder;">+</span> New Table</button>
+                <button id="newSheetBtn" onclick="createNewSheet()" class="new-sheet"><span style="font-size: 16px;font-weight: bolder;">+</span> New Sheet</button>
+                <button id="exportExcelBtn" class="export-btn" onclick="exportToExcel()">&#x1F4E4; Export to Excel</button>
+                <button id="exportPDFBtn" class="export-btn" onclick="exportToPDF()">&#x1F4E4; Export to PDF</button>
             </div>
             
         </div>
@@ -65,6 +64,8 @@
         <thead></thead>
         <tbody></tbody>
     </table>
+    <script src="./script/script.js"></script>
+    <script src="./script/export.js"></script>
 </body>
 
 </html>

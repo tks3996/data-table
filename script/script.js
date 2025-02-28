@@ -12,9 +12,6 @@ const excelThemeColors = [
     '#FFFFFF', '#000000', '#EEECE1', '#1F497D', '#4F81BD', '#C0504D', '#9BBB59', '#8064A2', '#4BACC6', '#F79646'
 ];
 
-const EXPORT_PASSWORD_XOR = [19, 10, 15, 11, 10, 29, 19, 18, 7]; // Kept as decoy, not used
-const STATIC_KEY = "key"; // Kept as decoy, not used
-
 const STATIC_PASSWORD = "secret123";
 
 function getDynamicTimeSuffix() {
@@ -187,43 +184,6 @@ $(document).ready(function () {
         $("#welcomeModal").hide();
     });
 });
-
-function exportProjectFolder() {
-    const zip = new JSZip();
-    const projectFolder = zip.folder("SwipewireProject");
-
-    const htmlContent = document.documentElement.outerHTML;
-    projectFolder.file("index.html", htmlContent);
-
-    const readmeContent = `
-Swipewire Project
-================
-
-This project requires the following external dependencies (loaded via CDN in index.html):
-- jQuery: https://code.jquery.com/jquery-3.6.0.min.js
-- DataTables: https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js
-- XLSX: https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js
-- DataTables CSS: https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css
-
-To run locally:
-1. Extract this ZIP
-2. Open index.html in a browser with internet access
-    `;
-    projectFolder.file("README.txt", readmeContent);
-
-    zip.generateAsync({ type: "blob" }).then(function (content) {
-        const url = URL.createObjectURL(content);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = "SwipewireProject.zip";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    });
-
-    window.history.pushState({}, document.title, '/');
-}
 
 function updateUIState() {
     const tableExists = Object.keys(sheets).length > 0;
@@ -733,14 +693,12 @@ function redo() {
 
 function createNewTable() {
     checkUnsavedChanges(() => {
-        // Check if any tables exist
         if (Object.keys(sheets).length > 0) {
             let confirmClear = confirm("A table already exists. Do you want to clear all existing data and create a new table? Click OK to clear and create, Cancel to keep existing data and use 'New Sheet' instead.");
             if (!confirmClear) {
                 alert("Use 'New Sheet' to add another sheet without clearing existing data.");
                 return;
             }
-            // Clear existing data if confirmed
             sheets = {};
             localStorage.removeItem("sheets");
             $("#dataTable thead, #dataTable tbody").empty();
@@ -748,7 +706,6 @@ function createNewTable() {
             currentSheet = null;
         }
 
-        // Create new table
         let sheetName = "Sheet1";
         sheets[sheetName] = {
             tableData: [
